@@ -619,11 +619,11 @@ update_xray() {
 
 remove_reality() {
     echo ""
-    echo -e "${BOLD}${RED}═══════════ 移除 Reality 节点 ═══════════${NC}"
+    echo -e "${BOLD}${RED}═══════════ 移除节点及所有配置 ═══════════${NC}"
     echo ""
     check_root
 
-    read -rp "$(echo -e "${RED}确认移除 Reality 节点及 Xray 服务？(y/N):${NC} ")" CONFIRM
+    read -rp "$(echo -e "${RED}确认移除 Reality 节点及所有配置？(y/N):${NC} ")" CONFIRM
     if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
         info "已取消操作。"
         press_any_key
@@ -641,13 +641,42 @@ remove_reality() {
     rm -rf /usr/local/etc/xray
     rm -f  /root/reality_client_info.txt
 
-    success "Reality 节点已完全移除！"
+    success "Reality 节点及所有配置已完全移除！"
 
     press_any_key
 }
 
 # ============================================================
-# 功能 4：删除脚本自身
+# 功能 4：查看当前节点信息与分享链接
+# ============================================================
+
+show_info() {
+    echo ""
+    echo -e "${BOLD}${GREEN}═══════════ 当前节点信息 ═══════════${NC}"
+    echo ""
+
+    if [[ ! -f "$XRAY_CONFIG" ]]; then
+        warn "未找到配置文件，节点可能尚未搭建。"
+        press_any_key
+        return
+    fi
+
+    if [[ -f /root/reality_client_info.txt ]]; then
+        cat /root/reality_client_info.txt
+    else
+        info "配置文件内容："
+        cat "$XRAY_CONFIG"
+    fi
+
+    echo ""
+    echo -e "${CYAN}Xray 服务状态:${NC}"
+    systemctl status xray --no-pager -l | head -20
+
+    press_any_key
+}
+
+# ============================================================
+# 功能 5：删除脚本自身
 # ============================================================
 
 delete_script() {
@@ -698,9 +727,10 @@ show_menu() {
     echo ""
     echo -e "  ${BOLD}1.${NC} 一键搭建 Reality 节点"
     echo -e "  ${BOLD}2.${NC} 更新 Xray-core"
-    echo -e "  ${BOLD}3.${NC} 移除 Reality 节点"
-    echo -e "  ${BOLD}4.${NC} 退出脚本"
-    echo -e "  ${BOLD}5.${NC} 删除脚本"
+    echo -e "  ${BOLD}3.${NC} 移除节点及所有配置"
+    echo -e "  ${BOLD}4.${NC} 查看当前节点信息与分享链接"
+    echo -e "  ${BOLD}5.${NC} 退出脚本"
+    echo -e "  ${BOLD}6.${NC} 删除脚本"
     echo ""
     echo -e "${BLUE}══════════════════════════════════════════════${NC}"
 }
@@ -710,20 +740,21 @@ main() {
 
     while true; do
         show_menu
-        read -rp "$(echo -e "${CYAN}请输入选项 [1-5]:${NC} ")" CHOICE
+        read -rp "$(echo -e "${CYAN}请输入选项 [1-6]:${NC} ")" CHOICE
         case "$CHOICE" in
-            1) setup_reality ;;
-            2) update_xray   ;;
+            1) setup_reality  ;;
+            2) update_xray    ;;
             3) remove_reality ;;
-            4)
+            4) show_info      ;;
+            5)
                 echo ""
                 info "已退出脚本，再见！"
                 echo ""
                 exit 0
                 ;;
-            5) delete_script ;;
+            6) delete_script ;;
             *)
-                warn "无效选项，请输入 1-5"
+                warn "无效选项，请输入 1-6"
                 sleep 1
                 ;;
         esac
