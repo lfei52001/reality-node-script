@@ -647,6 +647,33 @@ remove_reality() {
 }
 
 # ============================================================
+# 功能 4：删除脚本自身
+# ============================================================
+
+delete_script() {
+    echo ""
+    echo -e "${BOLD}${RED}═══════════ 删除脚本 ═══════════${NC}"
+    echo ""
+
+    SCRIPT_PATH=$(realpath "$0" 2>/dev/null || echo "$0")
+    info "脚本路径: ${SCRIPT_PATH}"
+    echo ""
+    read -rp "$(echo -e "${RED}确认删除此脚本文件？(y/N):${NC} ")" CONFIRM
+    if [[ "$CONFIRM" != "y" && "$CONFIRM" != "Y" ]]; then
+        info "已取消操作。"
+        press_any_key
+        return
+    fi
+
+    rm -f "$SCRIPT_PATH"
+    success "脚本已删除：${SCRIPT_PATH}"
+    echo ""
+    info "退出脚本..."
+    sleep 1
+    exit 0
+}
+
+# ============================================================
 # 主菜单
 # ============================================================
 
@@ -673,6 +700,7 @@ show_menu() {
     echo -e "  ${BOLD}2.${NC} 更新 Xray-core"
     echo -e "  ${BOLD}3.${NC} 移除 Reality 节点"
     echo -e "  ${BOLD}4.${NC} 退出脚本"
+    echo -e "  ${BOLD}5.${NC} 删除脚本"
     echo ""
     echo -e "${BLUE}══════════════════════════════════════════════${NC}"
 }
@@ -682,7 +710,7 @@ main() {
 
     while true; do
         show_menu
-        read -rp "$(echo -e "${CYAN}请输入选项 [1-4]:${NC} ")" CHOICE
+        read -rp "$(echo -e "${CYAN}请输入选项 [1-5]:${NC} ")" CHOICE
         case "$CHOICE" in
             1) setup_reality ;;
             2) update_xray   ;;
@@ -693,8 +721,9 @@ main() {
                 echo ""
                 exit 0
                 ;;
+            5) delete_script ;;
             *)
-                warn "无效选项，请输入 1-4"
+                warn "无效选项，请输入 1-5"
                 sleep 1
                 ;;
         esac
