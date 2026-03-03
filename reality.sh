@@ -449,9 +449,56 @@ setup_reality() {
     fi
     info "使用端口: ${BOLD}${INPUT_PORT}${NC}"
 
-    # ── 3. 自动优选伪装网站 ──
+    # ── 3. 选择伪装网站 ──
     echo ""
-    get_best_sni
+    echo -e "${CYAN}伪装网站选择方式：${NC}"
+    echo -e "  ${BOLD}1.${NC} 自动优选（根据 VPS 地区测速选最优站点）"
+    echo -e "  ${BOLD}2.${NC} 手动输入域名"
+    read -rp "$(echo -e "${CYAN}请选择 [默认 1]:${NC} ")" SNI_CHOICE
+    SNI_CHOICE="${SNI_CHOICE:-1}"
+
+    if [[ "$SNI_CHOICE" == "2" ]]; then
+        echo ""
+        echo -e "${YELLOW}提示：伪装域名需满足以下条件：${NC}"
+        echo -e "  ① 支持 TLS 1.3 和 HTTP/2"
+        echo -e "  ② 与你 VPS 之间延迟较低"
+        echo -e "  ③ 国际知名站点，流量大，不易被针对"
+        echo -e "  示例: www.microsoft.com / www.apple.com / dl.google.com"
+        echo ""
+        while true; do
+            read -rp "$(echo -e "${CYAN}请输入伪装域名:${NC} ")" MANUAL_SNI
+            MANUAL_SNI=$(echo "$MANUAL_SNI" | tr -d '[:space:]' | sed 's|https\?://||g' | sed 's|/.*||g')
+            if [[ -z "$MANUAL_SNI" ]]; then
+                warn "域名不能为空，请重新输入。"
+                continue
+            fi
+            # 简单格式校验：只允许字母、数字、点、连字符
+            if ! echo "$MANUAL_SNI" | grep -qP '^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$'; then
+                warn "域名格式不正确，请重新输入。"
+                continue
+            fi
+            # 测试 TLS 1.3 连通性
+            step "正在测试 ${MANUAL_SNI} 的 TLS 1.3 连通性..."
+            T=$(curl -o /dev/null -s -w "%{time_connect}" --max-time 8 --tlsv1.3 "https://${MANUAL_SNI}" 2>/dev/null)
+            T_MS=$(echo "$T" | awk '{printf "%d", $1*1000}')
+            if [[ $T_MS -gt 0 ]]; then
+                success "连通性正常，延迟 ${T_MS}ms"
+                BEST_SNI="$MANUAL_SNI"
+                break
+            else
+                warn "无法通过 TLS 1.3 连接到 ${MANUAL_SNI}"
+                read -rp "$(echo -e "${YELLOW}是否仍然使用此域名？(y/N):${NC} ")" FORCE_USE
+                if [[ "$FORCE_USE" == "y" || "$FORCE_USE" == "Y" ]]; then
+                    BEST_SNI="$MANUAL_SNI"
+                    warn "已强制使用 ${BEST_SNI}，请确认该域名支持 TLS 1.3"
+                    break
+                fi
+            fi
+        done
+        info "伪装域名: ${BOLD}${BEST_SNI}${NC}"
+    else
+        get_best_sni
+    fi
 
     # ── 4. 安装 Xray ──
     echo ""
