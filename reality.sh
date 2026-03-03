@@ -461,21 +461,24 @@ setup_reality() {
     echo ""
     step "生成密钥对和 UUID..."
 
-    # 兼容新旧版 Xray x25519 输出格式:
-    #   旧版: "Private key: xxxxx"
-    #   新版: 可能无空格或字段名不同
+    # Xray x25519 各版本输出格式:
+    #   旧版 (<v26): "Private key: xxx"  "Public key: xxx"
+    #   新版 (v26+): "PrivateKey: xxx"   "Password: xxx"   "Hash32: xxx"
+    #   注意: v26+ 中公钥字段名改为 "Password"
     KEYPAIR_OUTPUT=$("$XRAY_BIN" x25519 2>&1)
 
-    # 用正则精确提取 Base64url key 值（长度>=40）
-    PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -i "private" | grep -oP '[A-Za-z0-9+/=_-]{40,}' | head -1)
-    PUBLIC_KEY=$(echo  "$KEYPAIR_OUTPUT" | grep -i "public"  | grep -oP '[A-Za-z0-9+/=_-]{40,}' | head -1)
+    # 提取私钥: 匹配 PrivateKey 或 Private key
+    PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -iE "^PrivateKey:|^Private key:" | awk -F': ' '{print $2}' | tr -d '[:space:]')
 
-    # 兜底方案: 取冒号后最后一个字段
+    # 提取公钥: v26+ 字段名为 Password，旧版为 Public key
+    PUBLIC_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -iE "^Password:|^Public key:" | awk -F': ' '{print $2}' | tr -d '[:space:]')
+
+    # 兜底: 若仍为空则按行序取（第1行私钥，第2行公钥）
     if [[ -z "$PRIVATE_KEY" ]]; then
-        PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -i "private" | awk -F: '{print $NF}' | tr -d '[:space:]')
+        PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | sed -n '1p' | awk -F': ' '{print $2}' | tr -d '[:space:]')
     fi
     if [[ -z "$PUBLIC_KEY" ]]; then
-        PUBLIC_KEY=$(echo "$KEYPAIR_OUTPUT"  | grep -i "public"  | awk -F: '{print $NF}' | tr -d '[:space:]')
+        PUBLIC_KEY=$(echo "$KEYPAIR_OUTPUT"  | sed -n '2p' | awk -F': ' '{print $2}' | tr -d '[:space:]')
     fi
 
     # 校验非空，失败时打印原始输出辅助排查
