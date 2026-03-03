@@ -460,10 +460,39 @@ setup_reality() {
     # ── 5. 生成密钥对和 UUID ──
     echo ""
     step "生成密钥对和 UUID..."
-    KEYPAIR=$(xray x25519)
-    PRIVATE_KEY=$(echo "$KEYPAIR" | grep "Private key:" | awk '{print $3}')
-    PUBLIC_KEY=$(echo  "$KEYPAIR" | grep "Public key:"  | awk '{print $3}')
-    UUID=$(xray uuid)
+
+    # 兼容新旧版 Xray x25519 输出格式:
+    #   旧版: "Private key: xxxxx"
+    #   新版: 可能无空格或字段名不同
+    KEYPAIR_OUTPUT=$("$XRAY_BIN" x25519 2>&1)
+
+    # 用正则精确提取 Base64url key 值（长度>=40）
+    PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -i "private" | grep -oP '[A-Za-z0-9+/=_-]{40,}' | head -1)
+    PUBLIC_KEY=$(echo  "$KEYPAIR_OUTPUT" | grep -i "public"  | grep -oP '[A-Za-z0-9+/=_-]{40,}' | head -1)
+
+    # 兜底方案: 取冒号后最后一个字段
+    if [[ -z "$PRIVATE_KEY" ]]; then
+        PRIVATE_KEY=$(echo "$KEYPAIR_OUTPUT" | grep -i "private" | awk -F: '{print $NF}' | tr -d '[:space:]')
+    fi
+    if [[ -z "$PUBLIC_KEY" ]]; then
+        PUBLIC_KEY=$(echo "$KEYPAIR_OUTPUT"  | grep -i "public"  | awk -F: '{print $NF}' | tr -d '[:space:]')
+    fi
+
+    # 校验非空，失败时打印原始输出辅助排查
+    if [[ -z "$PRIVATE_KEY" || -z "$PUBLIC_KEY" ]]; then
+        error "密钥对生成失败！原始输出如下："
+        echo "$KEYPAIR_OUTPUT"
+        error "请手动执行 \"${XRAY_BIN} x25519\" 确认输出格式后反馈。"
+        press_any_key
+        return 1
+    fi
+
+    UUID=$("$XRAY_BIN" uuid 2>&1 | tr -d '[:space:]')
+    if [[ -z "$UUID" ]]; then
+        error "UUID 生成失败！"
+        press_any_key
+        return 1
+    fi
 
     success "UUID       : ${UUID}"
     success "私钥       : ${PRIVATE_KEY}"
